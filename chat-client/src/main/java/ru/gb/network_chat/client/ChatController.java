@@ -88,7 +88,7 @@ public class ChatController implements Initializable, MessageProcessor {
     }
 
     public void closeApplication(ActionEvent actionEvent) {
-        networkService.shutdown();
+        Platform.runLater(() -> networkService.shutdown());
         Platform.exit();
         System.out.println("Application closed.");
     }
