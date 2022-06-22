@@ -7,7 +7,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
-import java.security.spec.RSAOtherPrimeInfo;
 import java.util.Objects;
 
 import static ru.gb.network_chat.constants.MessageConstants.REGEX;
@@ -20,6 +19,7 @@ public class Handler {
     private DataOutputStream out;
     private Thread handlerThread;
     private String nickname;
+    private boolean isAuthorized = false;
 
     public Handler(Socket socket, Server server) {
         try {
@@ -32,6 +32,21 @@ public class Handler {
         }
     }
 
+    private void timeoutShutdown() {
+        Thread timeoutThread = new Thread(() -> {
+            try {
+                Thread.sleep(30000);
+                if (!isAuthorized) {
+                    shutdown();
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        timeoutThread.setDaemon(true);
+        timeoutThread.start();
+    }
+
     public void start() {
         handlerThread = new Thread (() -> {
             authorize();
@@ -41,7 +56,7 @@ public class Handler {
                     parseMessage(income);
                 } catch (IOException e) {
                     System.out.printf("Connection with %s was terminated.\n", nickname);
-                    server.removeHandler(this);
+                    server.removeClientHandler(this);
                     break;
                 }
             }
@@ -69,6 +84,7 @@ public class Handler {
     }
 
     private void authorize() {
+        timeoutShutdown();
         try {
             while (!socket.isClosed()) {
                 String income = in.readUTF();
@@ -89,8 +105,10 @@ public class Handler {
                         sendMessage(response);
                     } else {
                         this.nickname = nick;
+                        isAuthorized = true;
                         sendMessage(AUTH_OK.getCode() + REGEX + nickname);
-                        server.addHandler(this);
+                        server.addClientHandler(this);
+                        server.removeUnAuthHandler(this);
                         System.out.printf("Authorization with %s complete.\n", nickname);
                         break;
                     }

@@ -16,11 +16,11 @@ import javafx.stage.*;
 import javafx.scene.*;
 import ru.gb.network_chat.client.net.MessageProcessor;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.function.Consumer;
 
 import ru.gb.network_chat.client.net.NetworkService;
 import ru.gb.network_chat.enums.Command;
@@ -79,6 +79,11 @@ public class ChatController implements Initializable, MessageProcessor {
                     .showAndWait();
         });
     }
+    
+    public void showLoginPanel() {
+        loginPanel.setVisible(true);
+        mainPanel.setVisible(false);
+    }
 
     private void auth_ok(String[] split) {
         this.nickname = split[1];
@@ -98,9 +103,20 @@ public class ChatController implements Initializable, MessageProcessor {
         String password = passwordField.getText();
         if (login.isEmpty() || password.isEmpty()) return;
         String message = AUTH_MESSAGE.getCode() + REGEX + login + REGEX + password;
-        networkService.sendMessage(message);
-        loginField.clear();
-        passwordField.clear();
+
+        try {
+            if (!networkService.isConnected()) {
+                networkService.connect();
+            }
+            networkService.sendMessage(message);
+            loginField.clear();
+            passwordField.clear();
+        } catch (IOException e) {
+//                e.printStackTrace();
+            showError("Connection problem.");
+        }
+
+
     }
 
     @Override

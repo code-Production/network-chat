@@ -17,22 +17,30 @@ public class NetworkService {
     private DataInputStream in;
     private DataOutputStream out;
     private Thread networkServiceThread;
-    private MessageProcessor messageProcessor;
-    private ChatController chatController;
+    private final MessageProcessor messageProcessor;
+    private final ChatController chatController;
 
     public NetworkService(MessageProcessor messageProcessor, ChatController chatController) {
+        this.messageProcessor = messageProcessor;
+        this.chatController = chatController;
         try {
-            System.out.println("Network service started.");
-            this.chatController = chatController;
-            this.socket = new Socket(HOST, PORT);
-            this.in = new DataInputStream(socket.getInputStream());
-            this.out = new DataOutputStream(socket.getOutputStream());
-            this.messageProcessor = messageProcessor;
-            readMessage();
+            connect();
         } catch (IOException e) {
 //            e.printStackTrace();
-            System.out.println("Connection was lost.");
+            System.out.println("No connection to server.");
         }
+    }
+
+    public void connect() throws IOException {
+        this.socket = new Socket(HOST, PORT);
+        this.in = new DataInputStream(socket.getInputStream());
+        this.out = new DataOutputStream(socket.getOutputStream());
+        readMessage();
+        System.out.println("Network service started.");
+    }
+
+    public boolean isConnected() {
+        return socket != null && socket.isConnected() && !socket.isClosed();
     }
 
     public void shutdown() {
@@ -48,7 +56,7 @@ public class NetworkService {
         }
     }
 
-    private void readMessage() throws IOException {
+    private void readMessage() {
         networkServiceThread = new Thread(() -> {
             try {
                 while(!socket.isClosed() && !Thread.currentThread().isInterrupted()) {
@@ -59,6 +67,7 @@ public class NetworkService {
 //                e.printStackTrace();
                 String message = "Server closed the connection.";
                 chatController.showError(message);
+                chatController.showLoginPanel();
                 System.out.println(message);
             } finally {
                 shutdown();

@@ -34,12 +34,12 @@ public class Server {
             System.out.println("Server started.");
             userService.start();
             consoleInput();
-            while(!serverSocket.isClosed()) {
+            while (!serverSocket.isClosed()) {
                 Socket socket = serverSocket.accept();
                 System.out.println("Connection with new client established.");
                 Handler handler = new Handler(socket, this);
                 handler.start();
-                unAuthHandlers.add(handler);
+                addUnAuthHandler(handler);
             }
         } catch (IOException e) {
 //            e.printStackTrace();
@@ -87,13 +87,20 @@ public class Server {
         return userService;
     }
 
-    public synchronized void addHandler(Handler handler) {
-        clientHandlers.add(handler);
+    private synchronized void addUnAuthHandler(Handler handler) {
+        unAuthHandlers.add(handler);
+    }
+
+    public synchronized void removeUnAuthHandler(Handler handler) {
         unAuthHandlers.remove(handler);
+    }
+
+    public synchronized void addClientHandler(Handler handler) {
+        clientHandlers.add(handler);
         sendContacts();
     }
 
-    public synchronized void removeHandler(Handler handler) {
+    public synchronized void removeClientHandler(Handler handler) {
         clientHandlers.remove(handler);
         sendContacts();
     }
