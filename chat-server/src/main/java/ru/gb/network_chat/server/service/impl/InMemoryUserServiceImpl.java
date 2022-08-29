@@ -1,5 +1,6 @@
 package ru.gb.network_chat.server.service.impl;
 
+import ru.gb.network_chat.server.error.UserAlreadyExistsException;
 import ru.gb.network_chat.server.error.WrongCredentialsException;
 import ru.gb.network_chat.server.model.User;
 import ru.gb.network_chat.server.service.UserService;
@@ -39,5 +40,15 @@ public class InMemoryUserServiceImpl implements UserService {
             }
         }
         throw new WrongCredentialsException("Wrong credentials for user: " + login + ", with password: " + password + ".");
+    }
+
+    @Override
+    public String register(String nickname, String login, String password) throws UserAlreadyExistsException {
+        return null;
+    }
+
+    @Override
+    public String changeNickname(String old_nickname, String new_nickname, String login, String password) throws WrongCredentialsException, UserAlreadyExistsException {
+        return null;
     }
 }

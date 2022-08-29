@@ -5,12 +5,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.*;
 import javafx.scene.*;
@@ -33,13 +31,29 @@ public class ChatController implements Initializable, MessageProcessor {
     @FXML
     public VBox mainPanel;
     @FXML
-    public TextField loginField;
+    public TextField loginField_log;
     @FXML
-    public TextField passwordField;
+    public TextField passwordField_log;
     @FXML
     public Button btnSignIn;
     @FXML
     public VBox loginPanel;
+    @FXML
+    public VBox changeNickPanel;
+    @FXML
+    public TextField nicknameField_chg;
+    @FXML
+    public TextField loginField_chg;
+    @FXML
+    public TextField passwordField_chg;
+    @FXML
+    public Button btnChangeNick;
+    @FXML
+    public Button btnMainPanel;
+    @FXML
+    public Button btnSignUp;
+    @FXML
+    public Button btnSend;
     @FXML
     private TextArea chatArea;
     @FXML
@@ -47,21 +61,68 @@ public class ChatController implements Initializable, MessageProcessor {
     @FXML
     private TextField inputField;
     @FXML
-    private Button btnSend;
+    public VBox regPanel;
+    @FXML
+    public TextField loginField_reg;
+    @FXML
+    public TextField passwordField_reg;
+    @FXML
+    public TextField nicknameField_reg;
+    @FXML
+    public Button btnShowRegPanel;
+    @FXML
+    public Button btnShowLoginPanel;
+
+
 
     private MultipleSelectionModel<String> selectionModel;
     private NetworkService networkService;
     private String nickname;
+    private Stage stage;
 
     private void parseMessage(String message) {
         String[] split = message.split(REGEX);
         Command command = Command.getByCode(split[0]);
         switch(command) {
-            case AUTH_OK -> auth_ok(split);
+            case AUTH_OK -> {auth_ok(split); updateStageTitle();}
             case LIST_USERS -> parseUsers(split);
             case ERROR_MESSAGE -> showError(split[1]);
+            case ADD_USER_OK -> reg_ok(split[1]);
+            case CHANGE_NICK_OK -> {change_nick_ok(split); updateStageTitle();}
             default -> chatArea.appendText(split[1] + System.lineSeparator());
         }
+    }
+
+    private void updateStageTitle() {
+        stage.setTitle(String.format("Network chat client [%s]", nickname));
+    }
+
+    public void setStage(Stage stage) {
+        this.stage = stage;
+    }
+
+    private void change_nick_ok(String[] split) {
+        changeNickPanel.setVisible(false);
+        mainPanel.setVisible(true);
+        nickname = split[1];
+        Platform.runLater(() -> {
+            new Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    split[2],
+                    ButtonType.CLOSE)
+                    .showAndWait();
+        });
+    }
+
+    private void reg_ok(String message) {
+        showLoginPanel();
+        Platform.runLater(() -> {
+            new Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    message,
+                    ButtonType.CLOSE)
+                    .showAndWait();
+        });
     }
 
     private void parseUsers(String[] split) {
@@ -82,14 +143,16 @@ public class ChatController implements Initializable, MessageProcessor {
     
     public void showLoginPanel() {
         loginPanel.setVisible(true);
+        regPanel.setVisible(false);
         mainPanel.setVisible(false);
     }
 
     private void auth_ok(String[] split) {
         this.nickname = split[1];
-        System.out.println("Successfull authorization for user: " + split[1]);
+        System.out.println("Successful authorization for user: " + split[1]);
         loginPanel.setVisible(false);
         mainPanel.setVisible(true);
+
     }
 
     public void closeApplication(ActionEvent actionEvent) {
@@ -99,8 +162,8 @@ public class ChatController implements Initializable, MessageProcessor {
     }
 
     public void sendAuth(ActionEvent actionEvent) {
-        String login = loginField.getText();
-        String password = passwordField.getText();
+        String login = loginField_log.getText();
+        String password = passwordField_log.getText();
         if (login.isEmpty() || password.isEmpty()) return;
         String message = AUTH_MESSAGE.getCode() + REGEX + login + REGEX + password;
 
@@ -109,14 +172,12 @@ public class ChatController implements Initializable, MessageProcessor {
                 networkService.connect();
             }
             networkService.sendMessage(message);
-            loginField.clear();
-            passwordField.clear();
+            loginField_log.clear();
+            passwordField_log.clear();
         } catch (IOException e) {
 //                e.printStackTrace();
             showError("Connection problem.");
         }
-
-
     }
 
     @Override
@@ -124,7 +185,6 @@ public class ChatController implements Initializable, MessageProcessor {
         networkService = new NetworkService(this, this);
         selectionModel = contactList.getSelectionModel();
         selectionModel.setSelectionMode(SelectionMode.MULTIPLE);
-
     }
 
     public void sendMessage(ActionEvent actionEvent) {
@@ -170,6 +230,63 @@ public class ChatController implements Initializable, MessageProcessor {
     }
 
 
+    public void sendReg(ActionEvent actionEvent) {
+        String nickname = nicknameField_reg.getText();
+        String login = loginField_reg.getText();
+        String password = passwordField_reg.getText();
+        if (login.isEmpty() || password.isEmpty() || nickname.isEmpty()) return;
+        String message = ADD_USER_MESSAGE.getCode() + REGEX + nickname + REGEX + login + REGEX + password;
+        try {
+            if (!networkService.isConnected()) {
+                networkService.connect();
+            }
+            networkService.sendMessage(message);
+            loginField_reg.clear();
+            passwordField_reg.clear();
+            nicknameField_reg.clear();
+        } catch (IOException e) {
+//            e.printStackTrace();
+            showError("Connection problem.");
+        }
+    }
+
+    public void showRegPanel(ActionEvent actionEvent) {
+        loginPanel.setVisible(false);
+        regPanel.setVisible(true);
+    }
+
+
+    public void sendChangeNick(ActionEvent actionEvent) {
+        String nickname = nicknameField_chg.getText();
+        String login = loginField_chg.getText();
+        String password = passwordField_chg.getText();
+        if (login.isEmpty() || password.isEmpty() || nickname.isEmpty()) return;
+        String message = CHANGE_NICK_MESSAGE.getCode() + REGEX + nickname + REGEX + login + REGEX + password;
+        try {
+            if (!networkService.isConnected()) {
+                networkService.connect();
+            }
+            networkService.sendMessage(message);
+            loginField_chg.clear();
+            passwordField_chg.clear();
+            nicknameField_chg.clear();
+        } catch (IOException e) {
+//            e.printStackTrace();
+            showError("Connection problem.");
+        }
+    }
+
+    public void showMainPanel(ActionEvent actionEvent) {
+        changeNickPanel.setVisible(false);
+        mainPanel.setVisible(true);
+    }
+
+    public void showChangeNickPanel(ActionEvent actionEvent) {
+        changeNickPanel.setVisible(true);
+        mainPanel.setVisible(false);
+        regPanel.setVisible(false);
+        loginPanel.setVisible(false);
+    }
 }
 
 

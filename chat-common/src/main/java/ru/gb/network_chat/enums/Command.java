@@ -5,6 +5,10 @@ import java.util.Objects;
 public enum Command {
     AUTH_MESSAGE("/auth"),
     AUTH_OK("/auth_ok"),
+    ADD_USER_MESSAGE("/add_user"),
+    ADD_USER_OK("/add_user_ok"),
+    CHANGE_NICK_MESSAGE("/change_nick"),
+    CHANGE_NICK_OK("/change_nick_ok"),
     BROADCAST_MESSAGE("/broadcast"),
     PRIVATE_MESSAGE("/private"),
     ERROR_MESSAGE("/error"),
