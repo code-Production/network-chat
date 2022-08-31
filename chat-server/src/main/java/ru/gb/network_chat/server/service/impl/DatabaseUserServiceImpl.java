@@ -5,7 +5,6 @@ import ru.gb.network_chat.server.error.WrongCredentialsException;
 import ru.gb.network_chat.server.service.UserService;
 
 import java.sql.*;
-import java.util.Objects;
 
 public class DatabaseUserServiceImpl implements UserService {
 
@@ -74,7 +73,7 @@ public class DatabaseUserServiceImpl implements UserService {
     }
 
     @Override
-    public String changeNickname(String old_nickname, String new_nickname, String login, String password) throws WrongCredentialsException, UserAlreadyExistsException {
+    public String changeNickname(String nickname, String login, String password) throws WrongCredentialsException, UserAlreadyExistsException {
         try {
             PreparedStatement prepStat = connection.prepareStatement("SELECT nickname FROM Clients WHERE login = ? and password = ?");
             prepStat.setString(1, login);
@@ -82,17 +81,19 @@ public class DatabaseUserServiceImpl implements UserService {
             prepStat.addBatch();
             ResultSet rs = prepStat.executeQuery();
             if (rs.next()) {
-                if (!Objects.equals(rs.getString(1), old_nickname)) {
-                    throw new WrongCredentialsException("You cannot change other user`s nickname.");
-                }
-                prepStat = connection.prepareStatement("UPDATE Clients SET nickname = ? WHERE login = ? and password = ?");
-                prepStat.setString(1, new_nickname);
-                prepStat.setString(2, login);
-                prepStat.setString(3, password);
-                prepStat.addBatch();
-                int result = prepStat.executeUpdate();
-                if (result != 0) {
-                    return new_nickname;
+                prepStat = connection.prepareStatement("SELECT nickname FROM Clients WHERE nickname = ?"); //to avoid exception in UPDATE UNIQUE
+                prepStat.setString(1, nickname);
+                rs = prepStat.executeQuery();
+                if (!rs.next()) {
+                    prepStat = connection.prepareStatement("UPDATE Clients SET nickname = ? WHERE login = ? and password = ?");
+                    prepStat.setString(1, nickname);
+                    prepStat.setString(2, login);
+                    prepStat.setString(3, password);
+                    prepStat.addBatch();
+                    int result = prepStat.executeUpdate();
+                    if (result != 0) {
+                        return nickname;
+                    }
                 }
             } else {
                 throw new WrongCredentialsException("Wrong credentials for user: " + login + ", with password: " + password + ".");
@@ -100,8 +101,7 @@ public class DatabaseUserServiceImpl implements UserService {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        //nickname is unique column in DB so UPDATE won`t work if actual nickname isn`t and code end up here
-        throw new UserAlreadyExistsException("User with such nickname '" + new_nickname + "' already exists.");
+        throw new UserAlreadyExistsException("User with such nickname '" + nickname + "' already exists.");
     }
 
     private void connect() throws SQLException, ClassNotFoundException {

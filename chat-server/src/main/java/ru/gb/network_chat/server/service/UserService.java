@@ -8,6 +8,6 @@ public interface UserService {
     void stop();
     String authenticate(String login, String password) throws WrongCredentialsException;
     String register(String nickname, String login, String password) throws UserAlreadyExistsException;
-    String changeNickname(String old_nickname, String new_nickname, String login, String password) throws WrongCredentialsException,UserAlreadyExistsException;
+    String changeNickname(String nickname, String login, String password) throws WrongCredentialsException,UserAlreadyExistsException;
     //other user functions
 }
