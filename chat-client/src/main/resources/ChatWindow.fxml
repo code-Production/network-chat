@@ -11,10 +11,39 @@
 
     <VBox fx:id="loginPanel" >
         <Label text="Login:"/>
-        <TextField fx:id="loginField"/>
+        <TextField fx:id="loginField_log"/>
         <Label text="Password:"/>
-        <TextField fx:id="passwordField" onAction="#sendAuth" />
-        <Button fx:id="btnSignIn" text="Sign in" minWidth="200" onAction="#sendAuth"/>
+        <TextField fx:id="passwordField_log" onAction="#sendAuth" />
+        <HBox>
+            <Button fx:id="btnSignIn" text="Sign in" minWidth="100" onAction="#sendAuth"/>
+            <Button fx:id="btnShowRegPanel" text="Sign up" minWidth="100" onAction="#showRegPanel"/>
+        </HBox>
+    </VBox>
+
+    <VBox fx:id="regPanel" visible="false">
+        <Label text="Nickname:"/>
+        <TextField fx:id="nicknameField_reg"/>
+        <Label text="Login:"/>
+        <TextField fx:id="loginField_reg"/>
+        <Label text="Password:"/>
+        <TextField fx:id="passwordField_reg" onAction="#sendReg" />
+        <HBox>
+            <Button fx:id="btnSignUp" text="Sign up" minWidth="100" onAction="#sendReg"/>
+            <Button fx:id="btnShowLoginPanel" text="BACK" minWidth="100" onAction="#showLoginPanel"/>
+        </HBox>
+    </VBox>
+
+    <VBox fx:id="changeNickPanel" visible="false">
+        <Label text="New nickname:"/>
+        <TextField fx:id="nicknameField_chg"/>
+        <Label text="Login:"/>
+        <TextField fx:id="loginField_chg"/>
+        <Label text="Password:"/>
+        <TextField fx:id="passwordField_chg" onAction="#sendChangeNick" />
+        <HBox>
+            <Button fx:id="btnChangeNick" text="Confirm" minWidth="100" onAction="#sendChangeNick"/>
+            <Button fx:id="btnMainPanel" text="BACK" minWidth="100" onAction="#showMainPanel"/>
+        </HBox>
     </VBox>
 
     <VBox visible="false" fx:id="mainPanel">
@@ -39,7 +68,7 @@
             </Menu>
             <Menu text="Help">
                 <MenuItem text="Help" onAction="#helpPage"/>
-                <MenuItem text="Open" onAction="#mockAction"/>
+                <MenuItem text="Change nickname" onAction="#showChangeNickPanel"/>
                 <MenuItem text="Open" onAction="#mockAction"/>
                 <MenuItem text="About" onAction="#aboutPage"/>
             </Menu>

@@ -1,6 +1,7 @@
 package ru.gb.network_chat.server;
 
 import ru.gb.network_chat.enums.Command;
+import ru.gb.network_chat.server.error.UserAlreadyExistsException;
 import ru.gb.network_chat.server.error.WrongCredentialsException;
 
 import java.io.DataInputStream;
@@ -71,7 +72,33 @@ public class Handler {
         switch(command) {
             case BROADCAST_MESSAGE -> server.broadcast(this.nickname, split[1]);
             case PRIVATE_MESSAGE -> server.privateMessage(split[1], this.nickname, split[2]);
+            case CHANGE_NICK_MESSAGE -> changeNickname(split);
             default -> System.out.println("Unknown command code - " + split[0]);
+        }
+    }
+
+    private void changeNickname(String[] split) {
+        if(!socket.isClosed()){
+            String nick = null;
+            String response = "";
+            try {
+                nick = server.getUserService().changeNickname(nickname, split[1], split[2], split[3]);
+            } catch (WrongCredentialsException e) {
+                response = ERROR_MESSAGE.getCode() + REGEX + e.getMessage();
+                System.out.println("Wrong credentials for login - " + split[2] + ", with password - " + split[3] + ".");
+            } catch (UserAlreadyExistsException e) {
+                response = ERROR_MESSAGE.getCode() + REGEX + e.getMessage();
+                System.out.println("User with nickname '" + split[1] + "' already exists.");
+            }
+            if (!Objects.equals(response, "")) {
+                sendMessage(response);
+            } else if (nick != null) {
+                String message = "Changing nickname from " + nickname + " to " + nick + " is success.";
+                nickname = nick;
+                sendMessage(CHANGE_NICK_OK.getCode() + REGEX + nickname + REGEX + message);
+                System.out.println(message);
+                server.sendContacts();
+            }
         }
     }
 
@@ -111,6 +138,22 @@ public class Handler {
                         server.removeUnAuthHandler(this);
                         System.out.printf("Authorization with %s complete.\n", nickname);
                         break;
+                    }
+                } else if (Objects.equals(ADD_USER_MESSAGE.getCode(), split[0])) {
+                    String nick = null;
+                    String response = "";
+                    try {
+                        nick = server.getUserService().register(split[1], split[2], split[3]);
+                    } catch (UserAlreadyExistsException e) {
+                        response = ERROR_MESSAGE.getCode() + REGEX + e.getMessage();
+                        System.out.println("User with login: " + split[2] + " or nickname: " + split[1] + "already exists.");
+                    }
+                    if (!Objects.equals(response, "")) {
+                        sendMessage(response);
+                    } else if (nick != null){
+                        String message = "Registration for " + nick + " is complete.";
+                        sendMessage(ADD_USER_OK.getCode() + REGEX + message);
+                        System.out.println(message);
                     }
                 }
             }

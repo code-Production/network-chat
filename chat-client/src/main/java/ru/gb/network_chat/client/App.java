@@ -23,6 +23,7 @@ public class App extends Application {
         loader.setLocation(this.getClass().getResource("/ChatWindow.fxml"));
         Parent parent = loader.load();
         chatController = loader.getController();
+        chatController.setStage(primaryStage);
         Scene primaryScene = new Scene(parent);
         primaryStage.setScene(primaryScene);
         primaryStage.show();
