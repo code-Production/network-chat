@@ -14,11 +14,13 @@ import javafx.stage.*;
 import javafx.scene.*;
 import ru.gb.network_chat.client.net.MessageProcessor;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
+
 
 import ru.gb.network_chat.client.net.NetworkService;
 import ru.gb.network_chat.enums.Command;
@@ -42,8 +44,6 @@ public class ChatController implements Initializable, MessageProcessor {
     public VBox changeNickPanel;
     @FXML
     public TextField nicknameField_chg;
-    @FXML
-    public TextField loginField_chg;
     @FXML
     public TextField passwordField_chg;
     @FXML
@@ -78,19 +78,77 @@ public class ChatController implements Initializable, MessageProcessor {
     private MultipleSelectionModel<String> selectionModel;
     private NetworkService networkService;
     private String nickname;
+    private String login;
     private Stage stage;
 
-    private void parseMessage(String message) {
-        String[] split = message.split(REGEX);
+    FileOutputStream fos;
+    FileInputStream fis;
+    File file;
+
+
+    private void parseMessage(String input) {
+        String[] split = input.split(REGEX);
         Command command = Command.getByCode(split[0]);
         switch(command) {
-            case AUTH_OK -> {auth_ok(split); updateStageTitle();}
+            case AUTH_OK -> {
+                auth_ok(split);
+                fileStreamsInitialize();
+                updateStageTitle();
+                loadUserHistory(1000);
+            }
             case LIST_USERS -> parseUsers(split);
             case ERROR_MESSAGE -> showError(split[1]);
             case ADD_USER_OK -> reg_ok(split[1]);
-            case CHANGE_NICK_OK -> {change_nick_ok(split); updateStageTitle();}
-            default -> chatArea.appendText(split[1] + System.lineSeparator());
+            case CHANGE_NICK_OK -> {
+                change_nick_ok(split);
+                updateStageTitle();
+            }
+            default -> {
+                String message = split[1] + System.lineSeparator();
+                chatArea.appendText(message);
+                saveUserHistory(message);
+            }
         }
+    }
+
+    private void saveUserHistory(String message) {
+        byte[] buffer = message.getBytes(StandardCharsets.UTF_8);
+        try {
+            fos.write(buffer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadUserHistory(int lastLines) {
+        //ALL HISTORY
+//        byte[] buffer = new byte[1000];
+//        try {
+//            while (fis.read(buffer) != -1) {
+//                chatArea.appendText(new String(buffer));
+//            }
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+
+        //LAST N-LINE HISTORY
+//        long time = System.currentTimeMillis();
+        try(BufferedReader reader = new BufferedReader(new FileReader(file));
+            BufferedReader counter = new BufferedReader(new FileReader(file))) {
+            long linesCount = counter.lines().count();
+            int count = 1;
+            String line;
+            StringBuilder sb = new StringBuilder();
+            while((line = reader.readLine()) != null && count <= linesCount) {
+                if (count++ > linesCount - lastLines) {
+                    sb.append(line).append(System.lineSeparator());
+                }
+            }
+            chatArea.appendText(sb.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+//        System.out.println(System.currentTimeMillis() - time);
     }
 
     private void updateStageTitle() {
@@ -149,13 +207,39 @@ public class ChatController implements Initializable, MessageProcessor {
 
     private void auth_ok(String[] split) {
         this.nickname = split[1];
+        this.login = split[2];
         System.out.println("Successful authorization for user: " + split[1]);
         loginPanel.setVisible(false);
         mainPanel.setVisible(true);
+    }
 
+
+    private void fileStreamsInitialize() {
+        File dir = new File("history");
+        file = new File(dir, String.format("[%s]", login));
+        if (!file.exists()) {
+            boolean b = dir.mkdir();
+            try {
+                b = file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            fos = new FileOutputStream(file, true);
+            fis = new FileInputStream(file);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     public void closeApplication(ActionEvent actionEvent) {
+        try {
+            if (fis != null) fis.close();
+            if (fos != null) fos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         Platform.runLater(() -> networkService.shutdown());
         Platform.exit();
         System.out.println("Application closed.");
@@ -185,6 +269,7 @@ public class ChatController implements Initializable, MessageProcessor {
         networkService = new NetworkService(this, this);
         selectionModel = contactList.getSelectionModel();
         selectionModel.setSelectionMode(SelectionMode.MULTIPLE);
+        chatArea.setWrapText(true);
     }
 
     public void sendMessage(ActionEvent actionEvent) {
@@ -257,17 +342,15 @@ public class ChatController implements Initializable, MessageProcessor {
 
 
     public void sendChangeNick(ActionEvent actionEvent) {
-        String nickname = nicknameField_chg.getText();
-        String login = loginField_chg.getText();
+        String newNickname = nicknameField_chg.getText();
         String password = passwordField_chg.getText();
-        if (login.isEmpty() || password.isEmpty() || nickname.isEmpty()) return;
-        String message = CHANGE_NICK_MESSAGE.getCode() + REGEX + nickname + REGEX + login + REGEX + password;
+        if (login.isEmpty() || password.isEmpty() || newNickname.isEmpty()) return;
+        String message = CHANGE_NICK_MESSAGE.getCode() + REGEX + newNickname + REGEX + login + REGEX + password;
         try {
             if (!networkService.isConnected()) {
                 networkService.connect();
             }
             networkService.sendMessage(message);
-            loginField_chg.clear();
             passwordField_chg.clear();
             nicknameField_chg.clear();
         } catch (IOException e) {

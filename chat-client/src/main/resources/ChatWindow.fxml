@@ -36,8 +36,6 @@
     <VBox fx:id="changeNickPanel" visible="false">
         <Label text="New nickname:"/>
         <TextField fx:id="nicknameField_chg"/>
-        <Label text="Login:"/>
-        <TextField fx:id="loginField_chg"/>
         <Label text="Password:"/>
         <TextField fx:id="passwordField_chg" onAction="#sendChangeNick" />
         <HBox>

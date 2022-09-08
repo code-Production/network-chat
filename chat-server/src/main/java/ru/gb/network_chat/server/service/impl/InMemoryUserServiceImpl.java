@@ -48,7 +48,7 @@ public class InMemoryUserServiceImpl implements UserService {
     }
 
     @Override
-    public String changeNickname(String old_nickname, String new_nickname, String login, String password) throws WrongCredentialsException, UserAlreadyExistsException {
+    public String changeNickname(String nickname, String login, String password) throws WrongCredentialsException, UserAlreadyExistsException {
         return null;
     }
 }

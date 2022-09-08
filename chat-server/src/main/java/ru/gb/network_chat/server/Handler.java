@@ -20,6 +20,7 @@ public class Handler {
     private DataOutputStream out;
     private Thread handlerThread;
     private String nickname;
+    private String login;
     private boolean isAuthorized = false;
 
     public Handler(Socket socket, Server server) {
@@ -82,7 +83,7 @@ public class Handler {
             String nick = null;
             String response = "";
             try {
-                nick = server.getUserService().changeNickname(nickname, split[1], split[2], split[3]);
+                nick = server.getUserService().changeNickname(split[1], split[2], split[3]);
             } catch (WrongCredentialsException e) {
                 response = ERROR_MESSAGE.getCode() + REGEX + e.getMessage();
                 System.out.println("Wrong credentials for login - " + split[2] + ", with password - " + split[3] + ".");
@@ -132,8 +133,9 @@ public class Handler {
                         sendMessage(response);
                     } else {
                         this.nickname = nick;
+                        this.login = split[1];
                         isAuthorized = true;
-                        sendMessage(AUTH_OK.getCode() + REGEX + nickname);
+                        sendMessage(AUTH_OK.getCode() + REGEX + nickname + REGEX + login);
                         server.addClientHandler(this);
                         server.removeUnAuthHandler(this);
                         System.out.printf("Authorization with %s complete.\n", nickname);

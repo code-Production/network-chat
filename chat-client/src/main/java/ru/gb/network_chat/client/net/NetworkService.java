@@ -1,7 +1,5 @@
 package ru.gb.network_chat.client.net;
 
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
 import ru.gb.network_chat.client.ChatController;
 
 import java.io.DataInputStream;
