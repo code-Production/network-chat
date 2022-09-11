@@ -1,13 +1,18 @@
 package ru.gb.network_chat.server.service.impl;
 
+import ru.gb.network_chat.server.Handler;
 import ru.gb.network_chat.server.error.UserAlreadyExistsException;
 import ru.gb.network_chat.server.error.WrongCredentialsException;
 import ru.gb.network_chat.server.service.UserService;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
 
 public class DatabaseUserServiceImpl implements UserService {
 
+    private static final Logger log = LogManager.getLogger(DatabaseUserServiceImpl.class.getName());
     private Connection connection;
     private Statement statement;
 
@@ -15,8 +20,10 @@ public class DatabaseUserServiceImpl implements UserService {
     public void start() {
         try {
             connect();
-        } catch (SQLException | ClassNotFoundException e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            log.error("Connect to SQL DB problem, error={} - SQLException", e.getMessage());
+        } catch (ClassNotFoundException e) {
+            log.error("JDBC class not found, error={} - ClassNotFoundException", e.getMessage());
         }
     }
 
@@ -25,7 +32,7 @@ public class DatabaseUserServiceImpl implements UserService {
         try {
             disconnect();
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Disconnect from SQL DB problem, error={} - SQLException", e.getMessage());
         }
     }
 
@@ -41,10 +48,9 @@ public class DatabaseUserServiceImpl implements UserService {
                 return rs.getString(1);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Database access problem, error={} - SQLException", e.getMessage());
         }
         throw new WrongCredentialsException("Wrong credentials for user: " + login + ", with password: " + password + ".");
-
     }
 
     @Override
@@ -67,7 +73,7 @@ public class DatabaseUserServiceImpl implements UserService {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Database access problem, error={} - SQLException", e.getMessage());
         }
         throw new UserAlreadyExistsException("User with login '" + login + "' or nickname '" + nickname + "' already exists.");
     }
@@ -99,7 +105,7 @@ public class DatabaseUserServiceImpl implements UserService {
                 throw new WrongCredentialsException("Wrong credentials for user: " + login + ", with password: " + password + ".");
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Database access problem, error={} - SQLException", e.getMessage());
         }
         throw new UserAlreadyExistsException("User with such nickname '" + nickname + "' already exists.");
     }
