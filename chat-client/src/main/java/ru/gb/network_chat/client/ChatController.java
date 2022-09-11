@@ -74,16 +74,12 @@ public class ChatController implements Initializable, MessageProcessor {
     public Button btnShowLoginPanel;
 
 
-
     private MultipleSelectionModel<String> selectionModel;
     private NetworkService networkService;
     private String nickname;
     private String login;
     private Stage stage;
-
-    FileOutputStream fos;
-    FileInputStream fis;
-    File file;
+    private ChatHistoryManager historyManager;
 
 
     private void parseMessage(String input) {
@@ -92,9 +88,8 @@ public class ChatController implements Initializable, MessageProcessor {
         switch(command) {
             case AUTH_OK -> {
                 auth_ok(split);
-                fileStreamsInitialize();
                 updateStageTitle();
-                loadUserHistory(1000);
+                chatArea.appendText(historyManager.loadChatHistory(1000));
             }
             case LIST_USERS -> parseUsers(split);
             case ERROR_MESSAGE -> showError(split[1]);
@@ -106,49 +101,9 @@ public class ChatController implements Initializable, MessageProcessor {
             default -> {
                 String message = split[1] + System.lineSeparator();
                 chatArea.appendText(message);
-                saveUserHistory(message);
+                historyManager.saveChatHistory(message);
             }
         }
-    }
-
-    private void saveUserHistory(String message) {
-        byte[] buffer = message.getBytes(StandardCharsets.UTF_8);
-        try {
-            fos.write(buffer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void loadUserHistory(int lastLines) {
-        //ALL HISTORY
-//        byte[] buffer = new byte[1000];
-//        try {
-//            while (fis.read(buffer) != -1) {
-//                chatArea.appendText(new String(buffer));
-//            }
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-
-        //LAST N-LINE HISTORY
-//        long time = System.currentTimeMillis();
-        try(BufferedReader reader = new BufferedReader(new FileReader(file));
-            BufferedReader counter = new BufferedReader(new FileReader(file))) {
-            long linesCount = counter.lines().count();
-            int count = 1;
-            String line;
-            StringBuilder sb = new StringBuilder();
-            while((line = reader.readLine()) != null && count <= linesCount) {
-                if (count++ > linesCount - lastLines) {
-                    sb.append(line).append(System.lineSeparator());
-                }
-            }
-            chatArea.appendText(sb.toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-//        System.out.println(System.currentTimeMillis() - time);
     }
 
     private void updateStageTitle() {
@@ -211,35 +166,11 @@ public class ChatController implements Initializable, MessageProcessor {
         System.out.println("Successful authorization for user: " + split[1]);
         loginPanel.setVisible(false);
         mainPanel.setVisible(true);
-    }
-
-
-    private void fileStreamsInitialize() {
-        File dir = new File("history");
-        file = new File(dir, String.format("[%s]", login));
-        if (!file.exists()) {
-            boolean b = dir.mkdir();
-            try {
-                b = file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        try {
-            fos = new FileOutputStream(file, true);
-            fis = new FileInputStream(file);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
+        historyManager = new ChatHistoryManager("History", login);
     }
 
     public void closeApplication(ActionEvent actionEvent) {
-        try {
-            if (fis != null) fis.close();
-            if (fos != null) fos.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        Platform.runLater(() -> historyManager.shutdown());
         Platform.runLater(() -> networkService.shutdown());
         Platform.exit();
         System.out.println("Application closed.");

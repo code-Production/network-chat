@@ -9,50 +9,58 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static ru.gb.network_chat.constants.MessageConstants.REGEX;
 import static ru.gb.network_chat.enums.Command.*;
 
 public class Handler {
+
     private Server server;
     private Socket socket;
     private DataInputStream in;
     private DataOutputStream out;
-    private Thread handlerThread;
     private String nickname;
     private String login;
     private boolean isAuthorized = false;
+    private ExecutorService executorService;
+    private ExecutorService daemonExecutorService;
 
-    public Handler(Socket socket, Server server) {
+
+    public Handler(Socket socket,
+                   Server server,
+                   ExecutorService executorService,
+                   ExecutorService daemonExecutorService) {
         try {
             this.socket = socket;
             this.server = server;
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
+            this.executorService = executorService;
+            this.daemonExecutorService = daemonExecutorService;
         } catch (IOException e) {
             System.out.println("Connection problem with user " + nickname);
         }
     }
 
     private void timeoutShutdown() {
-        Thread timeoutThread = new Thread(() -> {
+        daemonExecutorService.execute(() -> {
             try {
                 Thread.sleep(30000);
                 if (!isAuthorized) {
                     shutdown();
                 }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+//                e.printStackTrace();
             }
         });
-        timeoutThread.setDaemon(true);
-        timeoutThread.start();
     }
 
     public void start() {
-        handlerThread = new Thread (() -> {
+        executorService.execute(() -> {
             authorize();
-            while (!handlerThread.isInterrupted() && !socket.isClosed()) {
+            while (!Thread.currentThread().isInterrupted() && !socket.isClosed()) {
                 try {
                     String income = in.readUTF();
                     parseMessage(income);
@@ -63,7 +71,6 @@ public class Handler {
                 }
             }
         });
-        handlerThread.start();
     }
 
     private void parseMessage(String message) {
@@ -173,8 +180,8 @@ public class Handler {
     }
 
     public void shutdown() {
-        if (handlerThread != null && !handlerThread.isInterrupted()) {
-            handlerThread.interrupt();
+        if (!Thread.currentThread().isInterrupted()) {
+            Thread.currentThread().interrupt();
         }
         if (socket != null && !socket.isClosed()) {
             try {

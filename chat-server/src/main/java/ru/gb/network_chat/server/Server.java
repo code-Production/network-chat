@@ -10,17 +10,28 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.stream.Collectors;
 
 import static ru.gb.network_chat.constants.MessageConstants.REGEX;
 import static ru.gb.network_chat.enums.Command.*;
 
 public class Server {
+
     private static final int PORT = 6629;
+    private static final int MAX_THREADS = 10;
+
+    private ExecutorService executorService;
+    private ExecutorService daemonExecutorService;
+
     private final List<Handler> clientHandlers;
     private final List<Handler> unAuthHandlers;
     private final UserService userService;
+
     private ServerSocket serverSocket;
+
 
     public Server(UserService userService) {
         this.userService = userService;
@@ -32,12 +43,15 @@ public class Server {
         try {
             serverSocket = new ServerSocket(PORT);
             System.out.println("Server started.");
+            executorService = Executors.newFixedThreadPool(MAX_THREADS);
+            daemonExecutorService = Executors.newCachedThreadPool();// =< MAX_THREADS
+            System.out.println("Threads pool started");
             userService.start();
             consoleInput();
             while (!serverSocket.isClosed()) {
                 Socket socket = serverSocket.accept();
                 System.out.println("Connection with new client established.");
-                Handler handler = new Handler(socket, this);
+                Handler handler = new Handler(socket, this, executorService, daemonExecutorService);
                 handler.start();
                 addUnAuthHandler(handler);
             }
@@ -48,6 +62,15 @@ public class Server {
             userService.stop();
             for (Handler handler : clientHandlers) {
                 handler.shutdown();
+            }
+            for (Handler handler : unAuthHandlers){
+                handler.shutdown();
+            }
+            if (executorService != null && !executorService.isTerminated()) {
+                executorService.shutdownNow();
+            }
+            if (daemonExecutorService != null && !daemonExecutorService.isTerminated()) {
+                daemonExecutorService.shutdownNow();
             }
             System.out.println("Server stopped.");
         }
@@ -62,13 +85,10 @@ public class Server {
                 e.printStackTrace();
             }
         }
-        for (Handler handler : unAuthHandlers){
-            handler.shutdown();
-        }
     }
 
     private void consoleInput() {
-        Thread consoleInputThread = new Thread(() -> {
+        executorService.execute(() -> {
             System.out.println("Enter /end to shutdown");
             while (true) {
                 try (Scanner sc = new Scanner(System.in)) {//
@@ -80,7 +100,6 @@ public class Server {
                 }
             }
         });
-        consoleInputThread.start();
     }
 
     public UserService getUserService() {
