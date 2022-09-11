@@ -170,7 +170,9 @@ public class ChatController implements Initializable, MessageProcessor {
     }
 
     public void closeApplication(ActionEvent actionEvent) {
-        Platform.runLater(() -> historyManager.shutdown());
+        if (historyManager != null) {
+            Platform.runLater(() -> historyManager.shutdown());
+        }
         Platform.runLater(() -> networkService.shutdown());
         Platform.exit();
         System.out.println("Application closed.");

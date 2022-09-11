@@ -1,5 +1,8 @@
 package ru.gb.network_chat.server;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import ru.gb.network_chat.enums.Command;
 import ru.gb.network_chat.server.error.UserAlreadyExistsException;
 import ru.gb.network_chat.server.error.WrongCredentialsException;
@@ -10,7 +13,6 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static ru.gb.network_chat.constants.MessageConstants.REGEX;
 import static ru.gb.network_chat.enums.Command.*;
@@ -26,6 +28,7 @@ public class Handler {
     private boolean isAuthorized = false;
     private ExecutorService executorService;
     private ExecutorService daemonExecutorService;
+    private static final Logger log = LogManager.getLogger(Handler.class.getName());
 
 
     public Handler(Socket socket,
@@ -40,7 +43,7 @@ public class Handler {
             this.executorService = executorService;
             this.daemonExecutorService = daemonExecutorService;
         } catch (IOException e) {
-            System.out.println("Connection problem with user " + nickname);
+            log.error("Connection problem with nickname={}, error={} - IOException", nickname, e.getMessage());
         }
     }
 
@@ -52,7 +55,8 @@ public class Handler {
                     shutdown();
                 }
             } catch (InterruptedException e) {
-//                e.printStackTrace();
+                log.warn("Daemon thread was interrupted, threadName={}, error={} - InterruptedException",
+                        Thread.currentThread().getName(), e.getMessage());
             }
         });
     }
@@ -65,7 +69,7 @@ public class Handler {
                     String income = in.readUTF();
                     parseMessage(income);
                 } catch (IOException e) {
-                    System.out.printf("Connection with %s was terminated.\n", nickname);
+                    log.error("Connection with nickname={} was terminated, error={} - IOException", nickname, e.getMessage());
                     server.removeClientHandler(this);
                     break;
                 }
@@ -76,12 +80,11 @@ public class Handler {
     private void parseMessage(String message) {
         String[] split = message.split(REGEX);
         Command command = Command.getByCode(split[0]);
-
         switch(command) {
             case BROADCAST_MESSAGE -> server.broadcast(this.nickname, split[1]);
             case PRIVATE_MESSAGE -> server.privateMessage(split[1], this.nickname, split[2]);
             case CHANGE_NICK_MESSAGE -> changeNickname(split);
-            default -> System.out.println("Unknown command code - " + split[0]);
+            default -> log.error("Message contains unknown Command.code={}.", split[0]);
         }
     }
 
@@ -93,18 +96,18 @@ public class Handler {
                 nick = server.getUserService().changeNickname(split[1], split[2], split[3]);
             } catch (WrongCredentialsException e) {
                 response = ERROR_MESSAGE.getCode() + REGEX + e.getMessage();
-                System.out.println("Wrong credentials for login - " + split[2] + ", with password - " + split[3] + ".");
+                log.warn("Change nickname with wrong credentials, nickname={}, login={}, password{}.", nickname, split[2], split[3]);
             } catch (UserAlreadyExistsException e) {
                 response = ERROR_MESSAGE.getCode() + REGEX + e.getMessage();
-                System.out.println("User with nickname '" + split[1] + "' already exists.");
+                log.warn("Change nickname to already existed, oldNickname={}, newNickname={}.", nickname, split[1]);
             }
             if (!Objects.equals(response, "")) {
                 sendMessage(response);
             } else if (nick != null) {
-                String message = "Changing nickname from " + nickname + " to " + nick + " is success.";
+                String message = "Changing nickname from " + nickname + " to " + nick + " is completed.";
+                log.info("Change nickname completed, oldNickname={} to newNickname={}.", nickname, nick);
                 nickname = nick;
                 sendMessage(CHANGE_NICK_OK.getCode() + REGEX + nickname + REGEX + message);
-                System.out.println(message);
                 server.sendContacts();
             }
         }
@@ -114,7 +117,7 @@ public class Handler {
         try {
             out.writeUTF(message);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("DataOutputStream sending message exception, error={} - IOException", e.getMessage());
         }
     }
 
@@ -131,10 +134,11 @@ public class Handler {
                         nick = server.getUserService().authenticate(split[1], split[2]);
                     } catch (WrongCredentialsException e) {
                         response = ERROR_MESSAGE.getCode() + REGEX + e.getMessage();
-                        System.out.println("Wrong credentials for user - " + split[1] + ", with password - " + split[2] + ".");
+                        log.warn("Authorize with wrong credentials, login={}, password={}.", split[1], split[2]);
                     }
                     if (nick != null && server.isUserAlreadyOnline(nick)) {
-                        response = ERROR_MESSAGE.getCode() + REGEX + "User with this nick is already online";
+                        response = ERROR_MESSAGE.getCode() + REGEX + "User with this nickname is already online";
+                        log.warn("Authorize under user already online, nickname={}.", nickname);
                     }
                     if (!Objects.equals(response, "")) {
                         sendMessage(response);
@@ -145,7 +149,7 @@ public class Handler {
                         sendMessage(AUTH_OK.getCode() + REGEX + nickname + REGEX + login);
                         server.addClientHandler(this);
                         server.removeUnAuthHandler(this);
-                        System.out.printf("Authorization with %s complete.\n", nickname);
+                        log.info("Authorize completed, nickname={}.", nickname);
                         break;
                     }
                 } else if (Objects.equals(ADD_USER_MESSAGE.getCode(), split[0])) {
@@ -155,27 +159,26 @@ public class Handler {
                         nick = server.getUserService().register(split[1], split[2], split[3]);
                     } catch (UserAlreadyExistsException e) {
                         response = ERROR_MESSAGE.getCode() + REGEX + e.getMessage();
-                        System.out.println("User with login: " + split[2] + " or nickname: " + split[1] + "already exists.");
+                        log.warn("Register with login/nickname already exist, login={}, nickname={}.", split[2], split[1]);
                     }
                     if (!Objects.equals(response, "")) {
                         sendMessage(response);
                     } else if (nick != null){
-                        String message = "Registration for " + nick + " is complete.";
+                        String message = "Registration for " + nick + " is completed.";
                         sendMessage(ADD_USER_OK.getCode() + REGEX + message);
-                        System.out.println(message);
+                        log.info("Register completed, nickname={}.", nickname);
                     }
                 }
             }
         } catch (IOException e) {
-//            e.printStackTrace();
-            if (socket != null && !socket.isClosed()){
+            if (socket != null && !socket.isClosed()) {
                 try {
                     socket.close();
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    log.error("Socket closure problem, error={} - IOException", ex.getMessage());
                 }
             }
-            System.out.println("Connection with new user was terminated.");
+            log.error("Connection with unauthorized user was terminated, error={} - IOException", e.getMessage());
         }
     }
 
@@ -187,7 +190,7 @@ public class Handler {
             try {
                 socket.close();
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("Socket closure problem, error={} - IOException", e.getMessage());
             }
         }
     }
